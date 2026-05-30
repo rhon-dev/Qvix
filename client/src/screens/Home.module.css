@@ -1,0 +1,139 @@
+.wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.title {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-dim);
+  font-size: 16px;
+  margin: -16px 0 0;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.input {
+  width: 100%;
+  background: var(--bg-2);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-size: 18px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  background: var(--bg-0);
+}
+
+.codeInput {
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.buttons {
+  display: grid;
+  gap: 12px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 18px;
+  border-radius: var(--radius);
+  border: none;
+  transition: transform 0.08s, background 0.15s, opacity 0.15s;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: #1a1300;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.btnPrimary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btnSecondary {
+  background: var(--bg-2);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.btnSecondary:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btnPrimary:disabled,
+.btnSecondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.error {
+  background: rgba(255, 93, 115, 0.12);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.status {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+}
+
+.statusOk {
+  color: var(--success);
+}

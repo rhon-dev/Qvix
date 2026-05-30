@@ -1,3 +1,4 @@
+import { saveGameResult } from './db';
 import type { Room, ServerMessage } from './ws';
 
 interface SampleQuestion {
@@ -122,4 +123,9 @@ function finishGame(room: Room, broadcast: Broadcast): void {
     .map((p) => ({ id: p.id, name: p.name, score: p.score }))
     .sort((a, b) => b.score - a.score);
   broadcast({ type: 'GAME_OVER', payload: { finalScores } });
+
+  saveGameResult(
+    room.code,
+    room.players.map((p) => ({ name: p.name, score: p.score })),
+  ).catch((err) => console.error('[gameEngine] saveGameResult failed', err));
 }
