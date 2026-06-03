@@ -26,6 +26,64 @@ pool?.on('error', (err) => {
   console.error('[db] pool error', err);
 });
 
+/** Schema, kept in sync with db/schema.sql. Applied idempotently on boot. */
+const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS rooms (
+  id          SERIAL PRIMARY KEY,
+  code        TEXT NOT NULL UNIQUE,
+  status      TEXT NOT NULL DEFAULT 'lobby',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS players (
+  id       SERIAL PRIMARY KEY,
+  room_id  INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  name     TEXT NOT NULL,
+  score    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS questions (
+  id              SERIAL PRIMARY KEY,
+  room_id         INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  question        TEXT NOT NULL,
+  options         JSONB NOT NULL,
+  correct_answer  TEXT NOT NULL,
+  order_index     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS players_room_id_idx ON players(room_id);
+CREATE INDEX IF NOT EXISTS players_score_idx ON players(score DESC);
+CREATE INDEX IF NOT EXISTS questions_room_id_order_idx ON questions(room_id, order_index);
+`;
+
+/**
+ * Apply the schema if a database is configured. Safe to run on every boot, so
+ * Railway/Heroku deploys never need a manual migration step. Returns false when
+ * persistence is disabled or the database is unreachable (the game still runs).
+ */
+export async function initDb(): Promise<boolean> {
+  if (!pool) return false;
+  try {
+    await pool.query(SCHEMA_SQL);
+    console.log('[db] schema ready');
+    return true;
+  } catch (err) {
+    console.error('[db] schema init failed — persistence may be degraded', err);
+    return false;
+  }
+}
+
+/** Lightweight connectivity probe for the /health endpoint. */
+export async function dbHealth(): Promise<'up' | 'down' | 'disabled'> {
+  if (!pool) return 'disabled';
+  try {
+    await pool.query('SELECT 1');
+    return 'up';
+  } catch {
+    return 'down';
+  }
+}
+
 export async function saveGameResult(
   roomCode: string,
   players: PlayerResult[],

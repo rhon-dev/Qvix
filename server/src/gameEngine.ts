@@ -1,45 +1,10 @@
 import { saveGameResult } from './db';
+import { pickQuestions, type Question, type Rng } from './questions';
+import { streakBonus, timeScore, TIME_LIMIT_MS, TIME_LIMIT_SECONDS } from './scoring';
 import type { Room, ServerMessage } from './ws';
 
-interface SampleQuestion {
-  question: string;
-  options: string[];
-  correctAnswer: string;
-}
-
-const SAMPLE_QUESTIONS: SampleQuestion[] = [
-  {
-    question: 'What is the capital of France?',
-    options: ['Berlin', 'Madrid', 'Paris', 'Rome'],
-    correctAnswer: 'Paris',
-  },
-  {
-    question: 'Which planet is known as the Red Planet?',
-    options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
-    correctAnswer: 'Mars',
-  },
-  {
-    question: 'Who wrote "Hamlet"?',
-    options: ['Dickens', 'Shakespeare', 'Tolstoy', 'Hemingway'],
-    correctAnswer: 'Shakespeare',
-  },
-  {
-    question: 'What is 7 x 8?',
-    options: ['54', '56', '64', '49'],
-    correctAnswer: '56',
-  },
-  {
-    question: 'Which element has the chemical symbol "O"?',
-    options: ['Gold', 'Oxygen', 'Osmium', 'Iron'],
-    correctAnswer: 'Oxygen',
-  },
-];
-
-const TIME_LIMIT_SECONDS = 15;
-const TIME_LIMIT_MS = TIME_LIMIT_SECONDS * 1000;
-const BASE_POINTS = 1000;
-const TIME_PENALTY_MAX = 500;
 const ROUND_INTERMISSION_MS = 3000;
+const DEFAULT_QUESTION_COUNT = Number(process.env.QUESTION_COUNT) || 10;
 
 type Broadcast = (msg: ServerMessage) => void;
 
@@ -48,21 +13,45 @@ interface PendingAnswer {
   timeMs: number;
 }
 
-export function startGame(room: Room, broadcast: Broadcast): void {
-  for (const p of room.players) p.score = 0;
+export interface GameOptions {
+  /** How many questions this game runs. Clamped to the bank size. */
+  questionCount?: number;
+  /** Override the question set (used by tests for determinism). */
+  questions?: Question[];
+  /** Injectable RNG for deterministic shuffling in tests. */
+  rng?: Rng;
+}
+
+export function startGame(room: Room, broadcast: Broadcast, opts: GameOptions = {}): void {
+  for (const p of room.players) {
+    p.score = 0;
+    p.streak = 0;
+  }
   room.status = 'active';
   room.currentQuestion = -1;
+  room.questions =
+    opts.questions ?? pickQuestions(opts.questionCount ?? DEFAULT_QUESTION_COUNT, opts.rng);
   runNextQuestion(room, broadcast);
 }
 
 function runNextQuestion(room: Room, broadcast: Broadcast): void {
+  const questions = room.questions ?? [];
+
+  // Everyone left mid-game — stop cleanly without broadcasting into the void.
+  if (room.players.length === 0) {
+    room.status = 'ended';
+    room.handleAnswer = undefined;
+    room.onPlayerLeft = undefined;
+    return;
+  }
+
   room.currentQuestion++;
-  if (room.currentQuestion >= SAMPLE_QUESTIONS.length) {
+  if (room.currentQuestion >= questions.length) {
     finishGame(room, broadcast);
     return;
   }
 
-  const q = SAMPLE_QUESTIONS[room.currentQuestion];
+  const q = questions[room.currentQuestion];
   const answers = new Map<string, PendingAnswer>();
   let finalized = false;
   let timer: NodeJS.Timeout | null = null;
@@ -72,23 +61,22 @@ function runNextQuestion(room: Room, broadcast: Broadcast): void {
     finalized = true;
     if (timer) clearTimeout(timer);
     room.handleAnswer = undefined;
+    room.onPlayerLeft = undefined;
 
     for (const player of room.players) {
       const a = answers.get(player.id);
-      if (!a) continue;
-      if (a.answer !== q.correctAnswer) continue;
-      const clamped = Math.max(0, Math.min(a.timeMs, TIME_LIMIT_MS));
-      const penalty = (clamped / TIME_LIMIT_MS) * TIME_PENALTY_MAX;
-      player.score += Math.round(BASE_POINTS - penalty);
+      const correct = a?.answer === q.correctAnswer;
+      if (correct && a) {
+        player.streak += 1;
+        player.score += timeScore(a.timeMs) + streakBonus(player.streak);
+      } else {
+        player.streak = 0;
+      }
     }
-
-    const scores = room.players
-      .map((p) => ({ id: p.id, name: p.name, score: p.score }))
-      .sort((a, b) => b.score - a.score);
 
     broadcast({
       type: 'ROUND_RESULT',
-      payload: { correctAnswer: q.correctAnswer, scores },
+      payload: { correctAnswer: q.correctAnswer, scores: scoreboard(room) },
     });
 
     setTimeout(() => runNextQuestion(room, broadcast), ROUND_INTERMISSION_MS);
@@ -102,12 +90,19 @@ function runNextQuestion(room: Room, broadcast: Broadcast): void {
     if (answers.size >= room.players.length) finalize();
   };
 
+  // A player leaving may mean everyone *remaining* has now answered.
+  room.onPlayerLeft = () => {
+    if (finalized) return;
+    if (room.players.length === 0 || answers.size >= room.players.length) finalize();
+  };
+
   broadcast({
     type: 'QUESTION',
     payload: {
       index: room.currentQuestion,
-      total: SAMPLE_QUESTIONS.length,
+      total: questions.length,
       question: q.question,
+      category: q.category,
       options: q.options,
       timeLimit: TIME_LIMIT_SECONDS,
     },
@@ -116,12 +111,17 @@ function runNextQuestion(room: Room, broadcast: Broadcast): void {
   timer = setTimeout(finalize, TIME_LIMIT_MS);
 }
 
+function scoreboard(room: Room) {
+  return room.players
+    .map((p) => ({ id: p.id, name: p.name, score: p.score }))
+    .sort((a, b) => b.score - a.score);
+}
+
 function finishGame(room: Room, broadcast: Broadcast): void {
   room.status = 'ended';
   room.handleAnswer = undefined;
-  const finalScores = room.players
-    .map((p) => ({ id: p.id, name: p.name, score: p.score }))
-    .sort((a, b) => b.score - a.score);
+  room.onPlayerLeft = undefined;
+  const finalScores = scoreboard(room);
   broadcast({ type: 'GAME_OVER', payload: { finalScores } });
 
   saveGameResult(

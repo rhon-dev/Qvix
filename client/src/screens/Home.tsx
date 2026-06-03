@@ -9,8 +9,16 @@ interface Props {
   onJoin: (playerName: string, roomCode: string) => void;
 }
 
+const NAME_KEY = 'knowdown.playerName';
+
 export default function Home({ status, error, onCreate, onJoin }: Props) {
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(() => {
+    try {
+      return localStorage.getItem(NAME_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [roomCode, setRoomCode] = useState('');
   const [mode, setMode] = useState<'choice' | 'join'>('choice');
 
@@ -18,14 +26,26 @@ export default function Home({ status, error, onCreate, onJoin }: Props) {
   const codeReady = roomCode.trim().length === 6;
   const canSend = status === 'open';
 
+  const rememberName = (name: string) => {
+    try {
+      localStorage.setItem(NAME_KEY, name);
+    } catch {
+      // ignore storage failures (private mode, etc.)
+    }
+  };
+
   const handleCreate = () => {
     if (!nameReady || !canSend) return;
-    onCreate(playerName.trim());
+    const name = playerName.trim();
+    rememberName(name);
+    onCreate(name);
   };
 
   const handleJoin = () => {
     if (!nameReady || !codeReady || !canSend) return;
-    onJoin(playerName.trim(), roomCode.trim().toUpperCase());
+    const name = playerName.trim();
+    rememberName(name);
+    onJoin(name, roomCode.trim().toUpperCase());
   };
 
   return (
@@ -43,8 +63,13 @@ export default function Home({ status, error, onCreate, onJoin }: Props) {
             className={styles.input}
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return;
+              if (mode === 'join') handleJoin();
+              else handleCreate();
+            }}
             placeholder="Player name"
-            maxLength={20}
+            maxLength={24}
             autoFocus
           />
         </div>
@@ -77,8 +102,10 @@ export default function Home({ status, error, onCreate, onJoin }: Props) {
                 className={`${styles.input} ${styles.codeInput}`}
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase().slice(0, 6))}
+                onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
                 placeholder="ABC123"
                 maxLength={6}
+                autoFocus
               />
             </div>
             <div className={styles.row}>

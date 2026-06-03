@@ -4,6 +4,16 @@ Real-time multiplayer trivia game. Players join a room by 6-char code, race to a
 
 Monorepo: `/client` (Vite + React + TS) and `/server` (Express + ws + Postgres + TS).
 
+## Features
+
+- **Live multiplayer rooms** — create or join by 6-char code, host migration if the host leaves.
+- **Randomized rounds** — questions are drawn from a categorized bank and re-shuffled (questions *and* answer order) every game, so no two rounds repeat.
+- **Time-weighted scoring** with a **consecutive-correct streak bonus** — answer fast and keep your streak alive.
+- **Keyboard play** — answer with `A`/`B`/`C`/`D` or `1`–`4`.
+- **Quality-of-life UX** — name is remembered across sessions, one-click room-code copy, auto-reconnect, category badges, per-round score deltas.
+- **Hall of Fame** — top scores persisted to Postgres and shown on the end screen.
+- **Resilient server** — heartbeat ping/pong, input sanitization, per-room/global capacity limits, graceful shutdown, and an auto-applied schema migration on boot.
+
 ## Local setup
 
 Requires Node 18+ and Postgres 14+.
@@ -52,13 +62,25 @@ Useful single-side scripts: `npm run dev:client`, `npm run dev:server`.
 
 ## Architecture
 
-- **WebSocket** (`server/src/ws.ts`) — room lifecycle, player tracking, heartbeat
-- **Game engine** (`server/src/gameEngine.ts`) — round loop, 15s timer, time-weighted scoring, persistence on `GAME_OVER`
-- **DB layer** (`server/src/db.ts`) — `pg` pool, `saveGameResult`, `getLeaderboard`
-- **REST** (`server/src/index.ts`) — `GET /health`, `GET /api/leaderboard`
+- **WebSocket** (`server/src/ws.ts`) — room lifecycle, player tracking, heartbeat, input sanitization, capacity limits, host migration
+- **Game engine** (`server/src/gameEngine.ts`) — round loop, 15s timer, streak-aware scoring, persistence on `GAME_OVER`
+- **Question bank** (`server/src/questions.ts`) — categorized questions + deterministic-testable shuffle/pick
+- **Scoring** (`server/src/scoring.ts`) — pure `timeScore` / `streakBonus` helpers
+- **DB layer** (`server/src/db.ts`) — `pg` pool, boot-time `initDb` migration, `dbHealth`, `saveGameResult`, `getLeaderboard`
+- **REST** (`server/src/index.ts`) — `GET /health` (status + db + room count + uptime), `GET /api/leaderboard`
 - **Client state machine** (`client/src/App.tsx`) — `home → lobby → question → results → end`
 
 Message types are mirrored in [`client/src/types.ts`](client/src/types.ts).
+
+## Testing & CI
+
+```bash
+npm test        # vitest — scoring, question bank, input sanitization
+npm run typecheck
+npm run build
+```
+
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs typecheck → test → build on every push and PR to `main`.
 
 ## Deploy
 
@@ -79,7 +101,8 @@ Message types are mirrored in [`client/src/types.ts`](client/src/types.ts).
 4. Set env vars:
    - `CORS_ORIGIN` = `https://your-vercel-app.vercel.app` (comma-separate multiple)
    - `PORT` is set by Railway, do not override.
-5. After first deploy, run the schema migration once against the Railway Postgres:
+   - Optional tuning: `QUESTION_COUNT` (default 10), `MAX_PLAYERS_PER_ROOM` (default 12), `MAX_ROOMS` (default 1000).
+5. The schema is applied automatically on boot (`initDb` runs idempotently), so no manual migration step is required. If you prefer to run it by hand:
 
    ```bash
    psql "$RAILWAY_DATABASE_URL" -f server/db/schema.sql

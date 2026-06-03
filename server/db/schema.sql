@@ -22,4 +22,5 @@ CREATE TABLE IF NOT EXISTS questions (
 );
 
 CREATE INDEX IF NOT EXISTS players_room_id_idx ON players(room_id);
+CREATE INDEX IF NOT EXISTS players_score_idx ON players(score DESC);
 CREATE INDEX IF NOT EXISTS questions_room_id_order_idx ON questions(room_id, order_index);

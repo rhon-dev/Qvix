@@ -25,11 +25,23 @@
 }
 
 .qIndex {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.12em;
+}
+
+.category {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(89, 193, 255, 0.14);
+  color: var(--info);
+  font-size: 11px;
+  letter-spacing: 0.08em;
 }
 
 .timer {

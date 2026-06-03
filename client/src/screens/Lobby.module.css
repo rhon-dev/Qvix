@@ -32,11 +32,27 @@
 }
 
 .code {
+  display: inline-block;
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 12px;
   font-size: 72px;
   font-weight: 800;
   letter-spacing: 0.16em;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.08s;
+}
+
+.code:hover {
+  background: rgba(255, 210, 63, 0.1);
+}
+
+.code:active {
+  transform: scale(0.98);
 }
 
 .hint {

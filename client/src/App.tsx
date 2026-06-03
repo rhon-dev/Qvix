@@ -14,6 +14,7 @@ interface QuestionState {
   index: number;
   total: number;
   question: string;
+  category: string;
   options: string[];
   timeLimit: number;
   startedAt: number;
@@ -72,6 +73,14 @@ export default function App() {
         setPlayers(msg.payload.players);
         return;
       }
+      case 'PLAYER_LEFT': {
+        setPlayers(msg.payload.players);
+        setLiveScores((prev) =>
+          prev.filter((s) => msg.payload.players.some((p) => p.id === s.id)),
+        );
+        setIsHost(msg.payload.players.some((p) => p.id === playerId && p.isHost));
+        return;
+      }
       case 'GAME_STARTED': {
         setLiveScores(players.map((p) => ({ id: p.id, name: p.name, score: 0 })));
         setPreviousScores({});
@@ -82,6 +91,7 @@ export default function App() {
           index: msg.payload.index,
           total: msg.payload.total,
           question: msg.payload.question,
+          category: msg.payload.category,
           options: msg.payload.options,
           timeLimit: msg.payload.timeLimit,
           startedAt: Date.now(),
@@ -179,6 +189,7 @@ export default function App() {
         index={question.index}
         total={question.total}
         question={question.question}
+        category={question.category}
         options={question.options}
         timeLimit={question.timeLimit}
         startedAt={question.startedAt}

@@ -6,6 +6,7 @@ interface Props {
   index: number;
   total: number;
   question: string;
+  category: string;
   options: string[];
   timeLimit: number;
   startedAt: number;
@@ -21,6 +22,7 @@ export default function Game({
   index,
   total,
   question,
+  category,
   options,
   timeLimit,
   startedAt,
@@ -57,6 +59,23 @@ export default function Game({
     onAnswer(opt, timeMs);
   };
 
+  // Answer with the A/B/C/D (or 1-4) keys for fast play.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (hasAnswered || selected) return;
+      const key = e.key.toUpperCase();
+      let i = LETTERS.indexOf(key);
+      if (i === -1 && /^[1-4]$/.test(e.key)) i = Number(e.key) - 1;
+      if (i >= 0 && i < options.length) {
+        e.preventDefault();
+        handleClick(options[i]);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options, hasAnswered, selected, startedAt]);
+
   const sortedScores = [...scores].sort((a, b) => b.score - a.score);
 
   return (
@@ -65,6 +84,7 @@ export default function Game({
         <div className={styles.header}>
           <div className={styles.qIndex}>
             Question {index + 1} / {total}
+            {category && <span className={styles.category}>{category}</span>}
           </div>
           <div className={styles.timer}>{Math.ceil(remaining)}s</div>
         </div>

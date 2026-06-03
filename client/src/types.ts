@@ -15,6 +15,7 @@ export type ServerMessage =
   | { type: 'ROOM_CREATED'; payload: { roomCode: string; playerId: string } }
   | { type: 'ROOM_JOINED'; payload: { roomCode: string; players: PublicPlayer[]; playerId: string } }
   | { type: 'PLAYER_JOINED'; payload: { player: PublicPlayer; players: PublicPlayer[] } }
+  | { type: 'PLAYER_LEFT'; payload: { playerId: string; players: PublicPlayer[] } }
   | { type: 'GAME_STARTED'; payload: { roomCode: string } }
   | {
       type: 'QUESTION';
@@ -22,6 +23,7 @@ export type ServerMessage =
         index: number;
         total: number;
         question: string;
+        category: string;
         options: string[];
         timeLimit: number;
       };

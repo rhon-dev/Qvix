@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { PublicPlayer } from '../types';
 import styles from './Lobby.module.css';
 
@@ -10,14 +11,29 @@ interface Props {
 
 export default function Lobby({ roomCode, players, isHost, onStart }: Props) {
   const canStart = players.length >= 1;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable — ignore
+    }
+  };
 
   return (
     <div className={styles.wrap}>
       <div className={styles.card}>
         <div className={styles.codeWrap}>
           <div className={styles.codeLabel}>Room code</div>
-          <div className={styles.code}>{roomCode}</div>
-          <div className={styles.hint}>Share this code with friends to join.</div>
+          <button className={styles.code} onClick={handleCopy} title="Click to copy">
+            {roomCode}
+          </button>
+          <div className={styles.hint}>
+            {copied ? 'Copied to clipboard!' : 'Click the code to copy, then share it with friends.'}
+          </div>
         </div>
 
         <div className={styles.playersWrap}>
